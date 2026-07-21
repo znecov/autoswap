@@ -1,21 +1,58 @@
 package com.example;
 
-import net.fabricmc.api.ModInitializer;
+import net.fabricmc.api.ClientModInitializer;
+import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
+import net.fabricmc.fabric.api.client.keybinding.v1.KeyBindingHelper;
+import net.minecraft.client.option.KeyBinding;
+import net.minecraft.client.util.InputUtil;
 import net.minecraft.client.MinecraftClient;
+import net.minecraft.entity.player.PlayerInventory;
+import net.minecraft.screen.slot.SlotActionType;
+import org.lwjgl.glfw.GLFW;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-public class AutoSwap implements ModInitializer {
+public class AutoSwap implements ClientModInitializer {
     public static final String MOD_ID = "autoswap";
     public static final Logger LOGGER = LoggerFactory.getLogger(MOD_ID);
 
+    private static KeyBinding swapKey;
+
     @Override
-    public void onInitialize() {
-        LOGGER.info("AutoSwap mod initialized successfully!");
+    public void onInitializeClient() {
+        swapKey = KeyBindingHelper.registerKeyBinding(new KeyBinding(
+                "key.autoswap.swap",
+                InputUtil.Type.KEYSYM,
+                GLFW.GLFW_KEY_R,
+                "category.autoswap.general"
+        ));
+
+        ClientTickEvents.END_CLIENT_TICK.register(client -> {
+            while (swapKey.wasPressed()) {
+                swapToHand(1);
+            }
+        });
+
+        LOGGER.info("AutoSwap client initialized successfully!");
     }
 
-    public static void swapItemToHand() {
+    public static void swapToHand(int targetSlot) {
         MinecraftClient client = MinecraftClient.getInstance();
         if (client.player == null || client.interactionManager == null) return;
+
+        PlayerInventory inventory = client.player.getInventory();
+        int currentSlot = inventory.selectedSlot;
+
+        if (currentSlot == targetSlot) return;
+
+        int syncId = client.player.playerScreenHandler.syncId;
+
+        client.interactionManager.clickSlot(
+                syncId,
+                targetSlot < 9 ? targetSlot + 36 : targetSlot,
+                currentSlot,
+                SlotActionType.SWAP,
+                client.player
+        );
     }
 }
